@@ -12,6 +12,7 @@ import { AlertManagement } from './pages/AlertManagement';
 import { RuleEngine } from './pages/RuleEngine';
 import { AnalyticsReport } from './pages/AnalyticsReport';
 import { AuditLogs } from './pages/AuditLogs';
+import { UserManagement } from './pages/UserManagement';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -108,6 +109,14 @@ export default function App() {
         element={
           <ProtectedRoute requireAdmin={true}>
             <AuditLogs />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute requireAdmin={true}>
+            <UserManagement />
           </ProtectedRoute>
         }
       />

@@ -9,6 +9,7 @@ import {
   FileText,
   ShieldCheck,
   Activity,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,6 +23,7 @@ export const Sidebar = () => {
 
   const adminLinks = [
     { to: '/admin', label: 'Executive Dashboard', icon: LayoutDashboard },
+    { to: '/users', label: 'User Management', icon: Users },
     { to: '/alerts', label: 'Fraud Alerts Triage', icon: AlertTriangle, badge: 'Live' },
     { to: '/rules', label: 'Rule Engine Config', icon: Sliders },
     { to: '/analytics', label: 'Analytics & Reports', icon: BarChart3 },

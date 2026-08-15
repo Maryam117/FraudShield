@@ -33,6 +33,9 @@ public class AdminController {
     @Autowired
     private AuditService auditService;
 
+    @Autowired
+    private com.fraudshield.service.UserService userService;
+
     @GetMapping("/analytics")
     public ResponseEntity<?> getAnalytics() {
         AnalyticsSummaryDto analytics = analyticsService.getExecutiveAnalytics();
@@ -81,5 +84,74 @@ public class AdminController {
                 .message("System audit logs fetched")
                 .data(logs)
                 .build());
+    }
+
+    // --- User Management Endpoints ---
+
+    @GetMapping("/users")
+    public ResponseEntity<?> getAllUsers() {
+        List<com.fraudshield.entity.User> users = userService.getAllUsers();
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Users fetched successfully")
+                .data(users)
+                .build());
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<?> createUser(
+            @Valid @RequestBody com.fraudshield.dto.UserRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            com.fraudshield.entity.User user = userService.createUser(request, userDetails.getUsername());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("User created successfully")
+                    .data(user)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<?> updateUser(
+            @PathVariable Long id,
+            @Valid @RequestBody com.fraudshield.dto.UserRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            com.fraudshield.entity.User user = userService.updateUser(id, request, userDetails.getUsername());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("User updated successfully")
+                    .data(user)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<?> deleteUser(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            userService.deleteUser(id, userDetails.getUsername());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("User deleted successfully")
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
     }
 }
