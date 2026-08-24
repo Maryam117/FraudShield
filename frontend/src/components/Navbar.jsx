@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Shield, LogOut, User, Bell, AlertTriangle, Check, ExternalLink, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { adminService } from '../services/api';
+import { adminService, API_BASE } from '../services/api';
 
 export const Navbar = () => {
   const { user, token, logout, isAdmin } = useAuth();
@@ -60,8 +60,7 @@ export const Navbar = () => {
     const authToken = token || localStorage.getItem('fraudshield_token');
     if (!authToken) return;
 
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
-    const eventSource = new EventSource(`${apiBase}/admin/alerts/stream?token=${authToken}`);
+    const eventSource = new EventSource(`${API_BASE}/admin/alerts/stream?token=${authToken}`);
 
     eventSource.addEventListener('fraud-alert', (event) => {
       try {
