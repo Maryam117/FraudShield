@@ -155,7 +155,3 @@ Open `http://localhost:5173` in your browser.
 | **Standard User 2** | `user2` | `password123` | Additional client payment portal & profile security settings |
 
 ---
-
-## 📖 Official Technical Documentation
-For full architectural specifications, REST API endpoint tables, risk scoring algorithms, and security details, see the official report:  
-👉 **[`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)**
