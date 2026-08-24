@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, History, ShieldCheck, AlertTriangle, Eye, PieChart, CheckCircle } from 'lucide-react';
+import { Send, History, ShieldCheck, AlertTriangle, Eye, PieChart, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { transactionService } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { RiskBadge } from '../components/RiskBadge';
 import { Modal } from '../components/Modal';
 import { useToast } from '../context/ToastContext';
 
+const PAGE_SIZE = 8;
+
 export const UserDashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [selectedTxn, setSelectedTxn] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [disputeReason, setDisputeReason] = useState('');
   const [disputing, setDisputing] = useState(false);
   const { addToast } = useToast();
@@ -61,6 +64,9 @@ export const UserDashboard = () => {
   }, {});
 
   const safetyScore = transactions.length === 0 ? 100 : Math.max(0, 100 - Math.round((flaggedCount / transactions.length) * 100));
+
+  const totalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+  const paginatedTransactions = transactions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-6 pb-10">
@@ -126,9 +132,9 @@ export const UserDashboard = () => {
         </div>
       </div>
 
-      {/* Transaction History Table */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Transaction History Table - Fixed Height & Internal Scroll */}
+      <div className="glass-panel rounded-2xl border border-slate-800 flex flex-col" style={{ height: '460px' }}>
+        <div className="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <History className="w-5 h-5 text-emerald-400" /> Transaction Ledger
           </h3>
@@ -136,33 +142,35 @@ export const UserDashboard = () => {
         </div>
 
         {loading ? (
-          <div className="py-8 text-center text-slate-400">Loading ledger data...</div>
-        ) : transactions.length === 0 ? (
-          <div className="py-8 text-center text-slate-400">No transactions recorded yet. Submit your first transfer above!</div>
+          <div className="flex-1 flex items-center justify-center text-slate-400">Loading ledger data...</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1">
             <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+              <thead className="bg-slate-900/90 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800 sticky top-0 z-10">
                 <tr>
-                  <th className="p-3.5">Reference Code</th>
-                  <th className="p-3.5">Receiver</th>
-                  <th className="p-3.5">Category</th>
-                  <th className="p-3.5">Amount</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5">Risk Score</th>
-                  <th className="p-3.5 text-right">Action</th>
+                  <th className="p-3.5 whitespace-nowrap">Reference Code</th>
+                  <th className="p-3.5 whitespace-nowrap">Receiver</th>
+                  <th className="p-3.5 whitespace-nowrap">Category</th>
+                  <th className="p-3.5 whitespace-nowrap">Amount</th>
+                  <th className="p-3.5 whitespace-nowrap">Status</th>
+                  <th className="p-3.5 whitespace-nowrap">Risk Score</th>
+                  <th className="p-3.5 text-right whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {transactions.map((txn) => (
+                {paginatedTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400">No transactions recorded yet. Submit your first transfer above!</td>
+                  </tr>
+                ) : paginatedTransactions.map((txn) => (
                   <tr key={txn.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="p-3.5 font-mono text-xs font-semibold text-slate-200">{txn.transactionReference}</td>
-                    <td className="p-3.5 text-slate-300">{txn.receiverAccount}</td>
-                    <td className="p-3.5 text-slate-400">{txn.merchantCategory}</td>
-                    <td className="p-3.5 font-bold text-white">${txn.amount?.toLocaleString()} {txn.currency}</td>
-                    <td className="p-3.5"><StatusBadge status={txn.status} /></td>
-                    <td className="p-3.5"><RiskBadge score={txn.riskScore} /></td>
-                    <td className="p-3.5 text-right">
+                    <td className="p-3.5 font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">{txn.transactionReference}</td>
+                    <td className="p-3.5 text-slate-300 whitespace-nowrap">{txn.receiverAccount}</td>
+                    <td className="p-3.5 text-slate-400 whitespace-nowrap">{txn.merchantCategory}</td>
+                    <td className="p-3.5 font-bold text-white whitespace-nowrap">${txn.amount?.toLocaleString()} {txn.currency}</td>
+                    <td className="p-3.5 whitespace-nowrap"><StatusBadge status={txn.status} /></td>
+                    <td className="p-3.5 whitespace-nowrap"><RiskBadge score={txn.riskScore} /></td>
+                    <td className="p-3.5 text-right whitespace-nowrap">
                       <button
                         onClick={() => setSelectedTxn(txn)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors"
@@ -177,6 +185,41 @@ export const UserDashboard = () => {
             </table>
           </div>
         )}
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800 shrink-0 bg-slate-900/40">
+          <span className="text-xs text-slate-400">
+            Page {page} of {totalPages} &nbsp;·&nbsp; Showing {paginatedTransactions.length} of {transactions.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                    page === p ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >{p}</button>
+              );
+            })}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Transaction Details & Dispute Modal (Feature 1) */}

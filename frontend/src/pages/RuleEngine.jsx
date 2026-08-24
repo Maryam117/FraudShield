@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, ToggleLeft, ToggleRight, Edit3, Shield, Info } from 'lucide-react';
+import { Sliders, ToggleLeft, ToggleRight, Edit3, Plus, Save, X } from 'lucide-react';
 import { adminService } from '../services/api';
 import { Modal } from '../components/Modal';
 import { useToast } from '../context/ToastContext';
+
+const EMPTY_NEW_RULE = {
+  ruleCode: '',
+  ruleName: '',
+  description: '',
+  thresholdValue: '',
+  riskPoints: '',
+};
 
 export const RuleEngine = () => {
   const [rules, setRules] = useState([]);
@@ -11,6 +19,15 @@ export const RuleEngine = () => {
   const [riskPoints, setRiskPoints] = useState('');
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
+
+  // New Rule modal state
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [newRule, setNewRule] = useState(EMPTY_NEW_RULE);
+  const [creating, setCreating] = useState(false);
+
+  // Simulation state
+  const [simResult, setSimResult] = useState(null);
+  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     fetchRules();
@@ -57,9 +74,6 @@ export const RuleEngine = () => {
     }
   };
 
-  const [simResult, setSimResult] = useState(null);
-  const [simulating, setSimulating] = useState(false);
-
   const handleSimulate = async () => {
     if (!editingRule) return;
     try {
@@ -67,7 +81,7 @@ export const RuleEngine = () => {
       const res = await adminService.simulateRule({
         ruleCode: editingRule.ruleCode,
         thresholdValue: parseFloat(threshold),
-        riskPoints: parseInt(riskPoints)
+        riskPoints: parseInt(riskPoints),
       });
       if (res.success && res.data) {
         setSimResult(res.data);
@@ -80,11 +94,43 @@ export const RuleEngine = () => {
     }
   };
 
+  const handleCreateRule = async (e) => {
+    e.preventDefault();
+    try {
+      setCreating(true);
+      const res = await adminService.createRule({
+        ruleCode: newRule.ruleCode,
+        ruleName: newRule.ruleName,
+        description: newRule.description,
+        thresholdValue: parseFloat(newRule.thresholdValue),
+        riskPoints: parseInt(newRule.riskPoints),
+      });
+      if (res.success) {
+        addToast(`Rule "${newRule.ruleName}" created successfully!`, 'success');
+        setShowNewModal(false);
+        setNewRule(EMPTY_NEW_RULE);
+        fetchRules();
+      }
+    } catch (err) {
+      addToast(err?.response?.data?.message || 'Failed to create rule', 'error');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">Fraud Detection Rule Engine</h2>
-        <p className="text-sm text-slate-400 mt-1">Configure baseline thresholds and risk scoring point weights</p>
+    <div className="space-y-6 pb-10">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight">Fraud Detection Rule Engine</h2>
+          <p className="text-sm text-slate-400 mt-1">Configure baseline thresholds and risk scoring point weights</p>
+        </div>
+        <button
+          onClick={() => { setShowNewModal(true); setNewRule(EMPTY_NEW_RULE); }}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-600/25"
+        >
+          <Plus className="w-4 h-4" /> Add New Rule
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -136,6 +182,94 @@ export const RuleEngine = () => {
           ))
         )}
       </div>
+
+      {/* Add New Rule Modal */}
+      <Modal isOpen={showNewModal} onClose={() => setShowNewModal(false)} title="Add New Detection Rule">
+        <form onSubmit={handleCreateRule} className="space-y-4 text-sm">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">Rule Code <span className="text-rose-400">*</span></label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. HIGH_VELOCITY"
+                value={newRule.ruleCode}
+                onChange={(e) => setNewRule({ ...newRule, ruleCode: e.target.value })}
+                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-white font-mono text-xs font-bold uppercase focus:outline-none focus:border-emerald-500"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Unique identifier, auto-uppercased</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">Rule Name <span className="text-rose-400">*</span></label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. High Velocity Transactions"
+                value={newRule.ruleName}
+                onChange={(e) => setNewRule({ ...newRule, ruleName: e.target.value })}
+                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">Description</label>
+            <textarea
+              rows={2}
+              placeholder="Describe when this rule triggers and what risk it detects…"
+              value={newRule.description}
+              onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
+              className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs resize-none focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">Threshold Value ($) <span className="text-rose-400">*</span></label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                min="0"
+                placeholder="e.g. 5000"
+                value={newRule.thresholdValue}
+                onChange={(e) => setNewRule({ ...newRule, thresholdValue: e.target.value })}
+                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-white font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">Risk Points (0–100) <span className="text-rose-400">*</span></label>
+              <input
+                type="number"
+                required
+                min="0"
+                max="100"
+                placeholder="e.g. 35"
+                value={newRule.riskPoints}
+                onChange={(e) => setNewRule({ ...newRule, riskPoints: e.target.value })}
+                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-white font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowNewModal(false)}
+              className="flex-1 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 font-bold hover:border-slate-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={creating}
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2"
+            >
+              <Save className="w-4 h-4" /> {creating ? 'Creating Rule...' : 'Create Rule Policy'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Edit Rule Modal */}
       <Modal isOpen={!!editingRule} onClose={() => setEditingRule(null)} title={`Edit Parameters: ${editingRule?.ruleCode}`}>

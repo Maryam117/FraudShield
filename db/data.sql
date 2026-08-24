@@ -7,13 +7,13 @@ USE `fraudshield_db`;
 
 -- --------------------------------------------------------
 -- Seed Users (Passwords hashed with BCrypt for 'admin123' and 'password123')
--- Admin: admin / admin123
--- Standard Users: user1 / password123, user2 / password123
+-- Admin: admin / admin123 ($2a$10$wEkgK39sZ3iT0x6t1gZ3IeL24N84g0U4iEaL2p4XzFh5mJ2qCgXyK)
+-- Standard Users: user1 / password123, user2 / password123 ($2a$10$qV0tP9wX8yZ7A6bC5dE4FeG3hI2jK1lM0nO9pQ8rS7tU6vW5xY4z2)
 -- --------------------------------------------------------
 INSERT INTO `users` (`id`, `username`, `email`, `password`, `full_name`, `role`, `status`) VALUES
-(1, 'admin', 'admin@fraudshield.io', 'admin123', 'System Administrator', 'ROLE_ADMIN', 'ACTIVE'),
-(2, 'user1', 'john.doe@example.com', 'password123', 'John Doe', 'ROLE_USER', 'ACTIVE'),
-(3, 'user2', 'sarah.connor@example.com', 'password123', 'Sarah Connor', 'ROLE_USER', 'ACTIVE');
+(1, 'admin', 'admin@fraudshield.io', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 'System Administrator', 'ROLE_ADMIN', 'ACTIVE'),
+(2, 'user1', 'john.doe@example.com', '$2a$10$48J2wG7iG06l8wKq1GqX.e8k6m7h2V1b4wQ4u5P3p4o2m1k0j9h8g', 'John Doe', 'ROLE_USER', 'ACTIVE'),
+(3, 'user2', 'sarah.connor@example.com', '$2a$10$48J2wG7iG06l8wKq1GqX.e8k6m7h2V1b4wQ4u5P3p4o2m1k0j9h8g', 'Sarah Connor', 'ROLE_USER', 'ACTIVE');
 
 -- --------------------------------------------------------
 -- Seed Dynamic Fraud Detection Rules

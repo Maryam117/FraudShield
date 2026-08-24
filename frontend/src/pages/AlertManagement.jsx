@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Search, Filter, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { adminService } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
 import { useToast } from '../context/ToastContext';
+
+const PAGE_SIZE = 10;
 
 export const AlertManagement = () => {
   const [alerts, setAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [notes, setNotes] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
 
@@ -42,67 +46,101 @@ export const AlertManagement = () => {
   };
 
   const filteredAlerts = alerts.filter((a) => {
-    if (filterStatus === 'ALL') return true;
-    return a.status === filterStatus;
+    const matchesFilter = filterStatus === 'ALL' || a.status === filterStatus;
+    const matchesSearch = !search || [
+      `#${a.id}`,
+      a.alertLevel,
+      a.user?.username,
+      a.user?.email,
+      a.transaction?.transactionReference,
+      a.transaction?.merchantCategory
+    ].some((field) => field?.toLowerCase().includes(search.toLowerCase()));
+    return matchesFilter && matchesSearch;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / PAGE_SIZE));
+  const paginatedAlerts = filteredAlerts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-white tracking-tight">Fraud Case Management Workbench</h2>
           <p className="text-sm text-slate-400 mt-1">Investigate, override, or confirm fraudulent transaction attempts</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500"
-          >
-            <option value="ALL">All Alert Statuses</option>
-            <option value="NEW">New Alerts</option>
-            <option value="UNDER_INVESTIGATION">Under Investigation</option>
-            <option value="RESOLVED_SAFE">Resolved Safe</option>
-            <option value="CONFIRMED_FRAUD">Confirmed Fraud</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search alerts by ref, user..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500 w-52"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <select
+              value={filterStatus}
+              onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+              className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500"
+            >
+              <option value="ALL">All Alert Statuses</option>
+              <option value="NEW">New Alerts</option>
+              <option value="UNDER_INVESTIGATION">Under Investigation</option>
+              <option value="RESOLVED_SAFE">Resolved Safe</option>
+              <option value="CONFIRMED_FRAUD">Confirmed Fraud</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+      {/* Fixed-height scrollable grid container */}
+      <div className="glass-panel rounded-3xl border border-slate-800 flex flex-col" style={{ height: '520px' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-400" /> Triage Queue
+          </h3>
+          <span className="text-xs text-slate-400">{filteredAlerts.length} Active Records</span>
+        </div>
+
         {loading ? (
-          <div className="py-8 text-center text-slate-400">Loading risk alerts...</div>
-        ) : filteredAlerts.length === 0 ? (
-          <div className="py-8 text-center text-slate-400">No alerts match the selected filter.</div>
+          <div className="flex-1 flex items-center justify-center text-slate-400">Loading risk alerts...</div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1">
             <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+              <thead className="bg-slate-900/90 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800 sticky top-0 z-10">
                 <tr>
-                  <th className="p-3.5">Alert ID</th>
-                  <th className="p-3.5">Severity</th>
-                  <th className="p-3.5">Customer</th>
-                  <th className="p-3.5">Reference</th>
-                  <th className="p-3.5">Amount</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Investigation</th>
+                  <th className="p-3.5 whitespace-nowrap">Alert ID</th>
+                  <th className="p-3.5 whitespace-nowrap">Severity</th>
+                  <th className="p-3.5 whitespace-nowrap">Customer</th>
+                  <th className="p-3.5 whitespace-nowrap">Reference</th>
+                  <th className="p-3.5 whitespace-nowrap">Amount</th>
+                  <th className="p-3.5 whitespace-nowrap">Status</th>
+                  <th className="p-3.5 text-right whitespace-nowrap">Investigation</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {filteredAlerts.map((alert) => (
+                {paginatedAlerts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400">No alerts match the selected filter.</td>
+                  </tr>
+                ) : paginatedAlerts.map((alert) => (
                   <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="p-3.5 font-bold text-white">#{alert.id}</td>
-                    <td className="p-3.5">
+                    <td className="p-3.5 font-bold text-white whitespace-nowrap">#{alert.id}</td>
+                    <td className="p-3.5 whitespace-nowrap">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${alert.alertLevel === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
                         {alert.alertLevel}
                       </span>
                     </td>
-                    <td className="p-3.5 text-slate-200">{alert.user?.username || alert.user?.email}</td>
-                    <td className="p-3.5 font-mono text-xs text-slate-400">{alert.transaction?.transactionReference}</td>
-                    <td className="p-3.5 font-extrabold text-white">${alert.transaction?.amount?.toLocaleString()}</td>
-                    <td className="p-3.5"><StatusBadge status={alert.status} /></td>
-                    <td className="p-3.5 text-right">
+                    <td className="p-3.5 text-slate-200 whitespace-nowrap">{alert.user?.username || alert.user?.email}</td>
+                    <td className="p-3.5 font-mono text-xs text-slate-400 whitespace-nowrap">{alert.transaction?.transactionReference}</td>
+                    <td className="p-3.5 font-extrabold text-white whitespace-nowrap">${alert.transaction?.amount?.toLocaleString()}</td>
+                    <td className="p-3.5 whitespace-nowrap"><StatusBadge status={alert.status} /></td>
+                    <td className="p-3.5 text-right whitespace-nowrap">
                       <button
                         onClick={() => {
                           setSelectedAlert(alert);
@@ -119,6 +157,41 @@ export const AlertManagement = () => {
             </table>
           </div>
         )}
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800 shrink-0 bg-slate-900/40">
+          <span className="text-xs text-slate-400">
+            Page {page} of {totalPages} &nbsp;·&nbsp; Showing {paginatedAlerts.length} of {filteredAlerts.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                    page === p ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >{p}</button>
+              );
+            })}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Case Investigation Modal */}

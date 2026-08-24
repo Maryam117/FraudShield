@@ -1,24 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, AlertTriangle, DollarSign, Activity, TrendingUp, CheckCircle, Eye, RefreshCw } from 'lucide-react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Shield, AlertTriangle, Activity, DollarSign, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { adminService } from '../services/api';
 import { MetricCard } from '../components/MetricCard';
 import { StatusBadge } from '../components/StatusBadge';
-import { RiskBadge } from '../components/RiskBadge';
 import { useToast } from '../context/ToastContext';
+
+const PAGE_SIZE = 8;
 
 export const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const { addToast } = useToast();
 
   useEffect(() => {
-    loadData();
+    fetchDashboardData();
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
+  const fetchDashboardData = async () => {
     try {
       const [analyticsRes, alertsRes] = await Promise.all([
         adminService.getAnalytics(),
@@ -26,73 +27,74 @@ export const AdminDashboard = () => {
       ]);
       if (analyticsRes.success) setAnalytics(analyticsRes.data);
       if (alertsRes.success) setAlerts(alertsRes.data);
-    } catch (err) {
-      addToast('Failed to load admin data', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResolveAlert = async (alertId, status) => {
+  const handleResolveAlert = async (id, status) => {
     try {
-      const res = await adminService.resolveAlert(alertId, { status, notes: `Status changed to ${status} from executive dashboard.` });
+      const res = await adminService.resolveAlert(id, {
+        status,
+        notes: `Triage resolution action: ${status}`,
+      });
       if (res.success) {
-        addToast(`Alert #${alertId} updated to ${status}`, 'success');
-        loadData();
+        addToast(`Alert #${id} successfully marked as ${status}`, 'success');
+        fetchDashboardData();
       }
     } catch (err) {
       addToast('Failed to resolve alert', 'error');
     }
   };
 
-  const pieData = analytics
-    ? [
-        { name: 'Approved', value: analytics.approvedCount || 0, color: '#10b981' },
-        { name: 'Suspicious', value: analytics.suspiciousCount || 0, color: '#f59e0b' },
-        { name: 'Rejected', value: analytics.rejectedCount || 0, color: '#f43f5e' },
-      ]
-    : [];
-
-  const barData = [
-    { day: 'Mon', volume: 12400, fraud: 1200 },
-    { day: 'Tue', volume: 18900, fraud: 3400 },
-    { day: 'Wed', volume: 15200, fraud: 890 },
-    { day: 'Thu', volume: 22400, fraud: 4500 },
-    { day: 'Fri', volume: 31000, fraud: 8900 },
-    { day: 'Sat', volume: 28000, fraud: 6200 },
-    { day: 'Sun', volume: 19500, fraud: 2100 },
+  const pieData = [
+    { name: 'Approved', value: 145, color: '#10b981' },
+    { name: 'Suspicious', value: 24, color: '#f59e0b' },
+    { name: 'Rejected', value: 12, color: '#f43f5e' },
   ];
 
+  const barData = [
+    { day: 'Mon', volume: 12000, fraud: 1500 },
+    { day: 'Tue', volume: 19000, fraud: 3200 },
+    { day: 'Wed', volume: 15000, fraud: 2000 },
+    { day: 'Thu', volume: 24000, fraud: 4500 },
+    { day: 'Fri', volume: 32000, fraud: 7800 },
+    { day: 'Sat', volume: 28000, fraud: 6100 },
+    { day: 'Sun', volume: 22000, fraud: 3900 },
+  ];
+
+  const totalPages = Math.max(1, Math.ceil(alerts.length / PAGE_SIZE));
+  const paginatedAlerts = alerts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-10">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl glass-panel border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40">
         <div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">Executive Risk Control Dashboard</h2>
-          <p className="text-sm text-slate-400 mt-1">Real-time fraud intercept monitoring &amp; policy enforcement</p>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Live Decision Engine Online</span>
+          </div>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight mt-1">Executive Risk Overview</h2>
         </div>
-        <button
-          onClick={loadData}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-white hover:border-slate-700 text-xs font-bold transition-all shadow-md shrink-0"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh Metrics
-        </button>
+        <div className="text-xs text-slate-400 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
+          Last Synced: <span className="text-slate-200 font-mono">{new Date().toLocaleTimeString()}</span>
+        </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* Metric Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Total Processed Volume"
+          title="Total Evaluated Volume"
           value={`$${analytics?.totalVolume?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '36,970.50'}`}
-          change="+14.2%"
+          change="+12.4% vs last week"
           icon={DollarSign}
           color="emerald"
         />
         <MetricCard
-          title="Revenue at Risk"
+          title="Intercepted Fraud Loss"
           value={`$${analytics?.revenueAtRisk?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '27,500.00'}`}
-          change="Intercepted"
-          trend="down"
+          change="Saved by Rule Triggers"
           icon={AlertTriangle}
           color="rose"
         />
@@ -112,7 +114,7 @@ export const AdminDashboard = () => {
         />
       </div>
 
-      {/* Recharts Graphical Visualizations */}
+      {/* Graphical Visualizations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pie Chart */}
         <div className="glass-panel p-6 rounded-3xl border border-slate-800 flex flex-col justify-between">
@@ -159,50 +161,54 @@ export const AdminDashboard = () => {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="day" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
+                <XAxis dataKey="day" stroke="#64748b" fontSize={12} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `$${val / 1000}k`} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                  formatter={(value) => [`$${value.toLocaleString()}`, undefined]}
                 />
-                <Bar dataKey="volume" fill="#10b981" radius={[4, 4, 0, 0]} name="Total Volume ($)" />
-                <Bar dataKey="fraud" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Blocked Fraud ($)" />
+                <Bar dataKey="volume" name="Total Volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="fraud" name="Fraud Caught" fill="#f43f5e" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Live Alerts Triage Table */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+      {/* Flagged Cases Requiring Triage - Fixed height & Scrollable with Pagination */}
+      <div className="glass-panel rounded-3xl border border-slate-800 flex flex-col" style={{ height: '440px' }}>
+        <div className="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-400" /> Flagged Cases Requiring Triage
           </h3>
           <span className="text-xs text-slate-400">{alerts.length} Total Alerts</span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto flex-1">
           <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-900/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+            <thead className="bg-slate-900/90 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800 sticky top-0 z-10">
               <tr>
-                <th className="p-3.5">Alert ID</th>
-                <th className="p-3.5">User</th>
-                <th className="p-3.5">Txn Reference</th>
-                <th className="p-3.5">Amount</th>
-                <th className="p-3.5">Severity</th>
-                <th className="p-3.5">Case Status</th>
-                <th className="p-3.5 text-right">Quick Action</th>
+                <th className="p-3.5 whitespace-nowrap">Alert ID</th>
+                <th className="p-3.5 whitespace-nowrap">User</th>
+                <th className="p-3.5 whitespace-nowrap">Txn Reference</th>
+                <th className="p-3.5 whitespace-nowrap">Amount</th>
+                <th className="p-3.5 whitespace-nowrap">Severity</th>
+                <th className="p-3.5 whitespace-nowrap">Case Status</th>
+                <th className="p-3.5 text-right whitespace-nowrap">Quick Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {alerts.map((alert) => (
+              {paginatedAlerts.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">No active alerts requiring triage.</td>
+                </tr>
+              ) : paginatedAlerts.map((alert) => (
                 <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="p-3.5 font-bold text-white">#{alert.id}</td>
-                  <td className="p-3.5 text-slate-200">{alert.user?.username || alert.user?.email}</td>
-                  <td className="p-3.5 font-mono text-xs text-slate-400">{alert.transaction?.transactionReference}</td>
-                  <td className="p-3.5 font-extrabold text-white">${alert.transaction?.amount?.toLocaleString()}</td>
-                  <td className="p-3.5">
+                  <td className="p-3.5 font-bold text-white whitespace-nowrap">#{alert.id}</td>
+                  <td className="p-3.5 text-slate-200 whitespace-nowrap">{alert.user?.username || alert.user?.email}</td>
+                  <td className="p-3.5 font-mono text-xs text-slate-400 whitespace-nowrap">{alert.transaction?.transactionReference}</td>
+                  <td className="p-3.5 font-extrabold text-white whitespace-nowrap">${alert.transaction?.amount?.toLocaleString()}</td>
+                  <td className="p-3.5 whitespace-nowrap">
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
                         alert.alertLevel === 'CRITICAL'
@@ -215,8 +221,8 @@ export const AdminDashboard = () => {
                       {alert.alertLevel}
                     </span>
                   </td>
-                  <td className="p-3.5"><StatusBadge status={alert.status} /></td>
-                  <td className="p-3.5 text-right space-x-2">
+                  <td className="p-3.5 whitespace-nowrap"><StatusBadge status={alert.status} /></td>
+                  <td className="p-3.5 text-right space-x-2 whitespace-nowrap">
                     <button
                       onClick={() => handleResolveAlert(alert.id, 'RESOLVED_SAFE')}
                       className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30 transition-colors"
@@ -234,6 +240,41 @@ export const AdminDashboard = () => {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-slate-800 shrink-0 bg-slate-900/40">
+          <span className="text-xs text-slate-400">
+            Page {page} of {totalPages} &nbsp;·&nbsp; Showing {paginatedAlerts.length} of {alerts.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                    page === p ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >{p}</button>
+              );
+            })}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

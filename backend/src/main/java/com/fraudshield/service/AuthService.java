@@ -39,7 +39,17 @@ public class AuthService {
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new RuntimeException("Error: User not found with username " + loginRequest.getUsername()));
 
-        if (!encoder.matches(loginRequest.getPassword(), user.getPassword())) {
+        boolean passwordMatches = false;
+        if (user.getPassword().startsWith("$2a$") || user.getPassword().startsWith("$2b$") || user.getPassword().startsWith("$2y$")) {
+            passwordMatches = encoder.matches(loginRequest.getPassword(), user.getPassword());
+        } else if (user.getPassword().equals(loginRequest.getPassword())) {
+            // Auto-migrate seeded plain-text password to BCrypt hash
+            user.setPassword(encoder.encode(loginRequest.getPassword()));
+            userRepository.save(user);
+            passwordMatches = true;
+        }
+
+        if (!passwordMatches) {
             throw new RuntimeException("Error: Invalid credentials");
         }
 

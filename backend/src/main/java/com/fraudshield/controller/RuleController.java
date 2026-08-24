@@ -30,6 +30,26 @@ public class RuleController {
                 .build());
     }
 
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createRule(
+            @RequestBody RuleDto dto,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            RuleDto created = ruleService.createRule(dto, userDetails.getUsername());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("New fraud rule created successfully")
+                    .data(created)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateRule(

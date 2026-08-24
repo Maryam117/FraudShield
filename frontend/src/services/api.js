@@ -96,6 +96,10 @@ export const adminService = {
     const res = await api.post('/rules/simulate', data);
     return res.data;
   },
+  createRule: async (data) => {
+    const res = await api.post('/rules', data);
+    return res.data;
+  },
   getAuditLogs: async () => {
     const res = await api.get('/admin/audit-logs');
     return res.data;

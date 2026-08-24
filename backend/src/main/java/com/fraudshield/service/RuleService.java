@@ -89,6 +89,29 @@ public class RuleService {
         return mapToDto(saved);
     }
 
+    public RuleDto createRule(RuleDto dto, String adminUser) {
+        if (dto.getRuleCode() == null || dto.getRuleCode().isBlank()) {
+            throw new RuntimeException("Rule Code is required");
+        }
+        if (ruleRepository.existsByRuleCode(dto.getRuleCode().toUpperCase())) {
+            throw new RuntimeException("Rule Code '" + dto.getRuleCode() + "' already exists");
+        }
+
+        FraudRule rule = FraudRule.builder()
+                .ruleCode(dto.getRuleCode().toUpperCase().trim())
+                .ruleName(dto.getRuleName())
+                .description(dto.getDescription())
+                .thresholdValue(dto.getThresholdValue())
+                .riskPoints(dto.getRiskPoints())
+                .isActive(true)
+                .build();
+
+        FraudRule saved = ruleRepository.save(rule);
+        auditService.logAction("RULE_CREATE", adminUser, "Rule:" + saved.getRuleCode(),
+                "New rule created with threshold=" + saved.getThresholdValue() + ", points=" + saved.getRiskPoints(), "127.0.0.1");
+        return mapToDto(saved);
+    }
+
     public RuleDto toggleRuleStatus(Long id, String adminUser) {
         FraudRule rule = ruleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Rule not found with id: " + id));
