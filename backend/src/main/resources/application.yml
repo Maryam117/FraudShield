@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
     context-path: /
 
@@ -8,9 +8,9 @@ spring:
     name: fraudshield-backend
 
   datasource:
-    url: jdbc:mysql://localhost:3306/fraudshield_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-    username: root
-    password: ""
+    url: ${SPRING_DATASOURCE_URL:${MYSQL_URL:jdbc:mysql://${MYSQLHOST:localhost}:${MYSQLPORT:3306}/${MYSQLDATABASE:fraudshield_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true}}
+    username: ${SPRING_DATASOURCE_USERNAME:${MYSQLUSER:root}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${MYSQLPASSWORD:}}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -24,8 +24,8 @@ spring:
 
 fraudshield:
   app:
-    jwtSecret: FraudShieldSecretKeyForJWTAuthentication2026EnterpriseSecurityTokenKey998877
-    jwtExpirationMs: 86400000 # 24 Hours
+    jwtSecret: ${JWT_SECRET:FraudShieldSecretKeyForJWTAuthentication2026EnterpriseSecurityTokenKey998877}
+    jwtExpirationMs: ${JWT_EXPIRATION_MS:86400000} # 24 Hours
 
 logging:
   level:

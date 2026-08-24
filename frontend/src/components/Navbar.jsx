@@ -60,7 +60,8 @@ export const Navbar = () => {
     const authToken = token || localStorage.getItem('fraudshield_token');
     if (!authToken) return;
 
-    const eventSource = new EventSource(`/api/admin/alerts/stream?token=${authToken}`);
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+    const eventSource = new EventSource(`${apiBase}/admin/alerts/stream?token=${authToken}`);
 
     eventSource.addEventListener('fraud-alert', (event) => {
       try {
