@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight, Search, Zap } from 'lucide-react';
 import { adminService } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { Modal } from '../components/Modal';
@@ -9,6 +9,7 @@ const PAGE_SIZE = 10;
 
 export const AlertManagement = () => {
   const [alerts, setAlerts] = useState([]);
+  const [recentTriggerIds, setRecentTriggerIds] = useState(new Set());
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [notes, setNotes] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
@@ -19,6 +20,37 @@ export const AlertManagement = () => {
 
   useEffect(() => {
     fetchAlerts();
+
+    const handleNewAlert = (e) => {
+      const newAlert = e.detail;
+      if (newAlert && newAlert.id) {
+        setAlerts((prev) => {
+          // Check if already in list
+          const exists = prev.some((a) => a.id === newAlert.id);
+          if (exists) return prev;
+          return [newAlert, ...prev];
+        });
+
+        // Mark as live trigger
+        setRecentTriggerIds((prev) => new Set([...prev, newAlert.id]));
+        setPage(1); // Jump to page 1 so it's immediately visible
+
+        // Remove live badge after 20 seconds
+        setTimeout(() => {
+          setRecentTriggerIds((prev) => {
+            const next = new Set(prev);
+            next.delete(newAlert.id);
+            return next;
+          });
+        }, 20000);
+      }
+
+      // Synchronize with database in background
+      setTimeout(fetchAlerts, 400);
+    };
+
+    window.addEventListener('fraud-alert-received', handleNewAlert);
+    return () => window.removeEventListener('fraud-alert-received', handleNewAlert);
   }, []);
 
   const fetchAlerts = async () => {
@@ -65,8 +97,15 @@ export const AlertManagement = () => {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">Fraud Case Management Workbench</h2>
-          <p className="text-sm text-slate-400 mt-1">Investigate, override, or confirm fraudulent transaction attempts</p>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+            Fraud Case Management Workbench
+            {recentTriggerIds.size > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
+                <Zap className="w-3.5 h-3.5" /> {recentTriggerIds.size} Live Inbound Triggered
+              </span>
+            )}
+          </h2>
+          <p className="text-sm text-slate-400 mt-1">Investigate, override, or confirm fraudulent transaction attempts in real-time</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -128,31 +167,54 @@ export const AlertManagement = () => {
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-400">No alerts match the selected filter.</td>
                   </tr>
-                ) : paginatedAlerts.map((alert) => (
-                  <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="p-3.5 font-bold text-white whitespace-nowrap">#{alert.id}</td>
-                    <td className="p-3.5 whitespace-nowrap">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${alert.alertLevel === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
-                        {alert.alertLevel}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-slate-200 whitespace-nowrap">{alert.user?.username || alert.user?.email}</td>
-                    <td className="p-3.5 font-mono text-xs text-slate-400 whitespace-nowrap">{alert.transaction?.transactionReference}</td>
-                    <td className="p-3.5 font-extrabold text-white whitespace-nowrap">${alert.transaction?.amount?.toLocaleString()}</td>
-                    <td className="p-3.5 whitespace-nowrap"><StatusBadge status={alert.status} /></td>
-                    <td className="p-3.5 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => {
-                          setSelectedAlert(alert);
-                          setNotes(alert.investigationNotes || '');
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 hover:text-white transition-colors"
-                      >
-                        Inspect Case
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                ) : paginatedAlerts.map((alert) => {
+                  const isJustTriggered = recentTriggerIds.has(alert.id);
+                  return (
+                    <tr
+                      key={alert.id}
+                      className={`transition-all duration-300 ${
+                        isJustTriggered
+                          ? 'bg-rose-500/15 border-l-4 border-l-rose-500 shadow-inner'
+                          : 'hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <td className="p-3.5 font-bold text-white whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span>#{alert.id}</span>
+                          {isJustTriggered && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-rose-500 to-amber-500 text-white animate-pulse shadow-md shadow-rose-500/50">
+                              ⚡ Just Triggered
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${alert.alertLevel === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                          {alert.alertLevel}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-200 whitespace-nowrap">{alert.user?.username || alert.user?.email}</td>
+                      <td className="p-3.5 font-mono text-xs text-slate-400 whitespace-nowrap">{alert.transaction?.transactionReference}</td>
+                      <td className="p-3.5 font-extrabold text-white whitespace-nowrap">${alert.transaction?.amount?.toLocaleString()}</td>
+                      <td className="p-3.5 whitespace-nowrap"><StatusBadge status={alert.status} /></td>
+                      <td className="p-3.5 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            setSelectedAlert(alert);
+                            setNotes(alert.investigationNotes || '');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            isJustTriggered
+                              ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/30'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white'
+                          }`}
+                        >
+                          Inspect Case
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

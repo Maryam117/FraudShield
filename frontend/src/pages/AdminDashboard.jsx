@@ -11,12 +11,38 @@ const PAGE_SIZE = 8;
 export const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  const [recentTriggerIds, setRecentTriggerIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const { addToast } = useToast();
 
   useEffect(() => {
     fetchDashboardData();
+
+    const handleNewAlert = (e) => {
+      const newAlert = e.detail;
+      if (newAlert && newAlert.id) {
+        setAlerts((prev) => {
+          const exists = prev.some((a) => a.id === newAlert.id);
+          if (exists) return prev;
+          return [newAlert, ...prev];
+        });
+        setRecentTriggerIds((prev) => new Set([...prev, newAlert.id]));
+        setPage(1);
+
+        setTimeout(() => {
+          setRecentTriggerIds((prev) => {
+            const next = new Set(prev);
+            next.delete(newAlert.id);
+            return next;
+          });
+        }, 20000);
+      }
+      setTimeout(fetchDashboardData, 400);
+    };
+
+    window.addEventListener('fraud-alert-received', handleNewAlert);
+    return () => window.removeEventListener('fraud-alert-received', handleNewAlert);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -202,9 +228,27 @@ export const AdminDashboard = () => {
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-400">No active alerts requiring triage.</td>
                 </tr>
-              ) : paginatedAlerts.map((alert) => (
-                <tr key={alert.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="p-3.5 font-bold text-white whitespace-nowrap">#{alert.id}</td>
+              ) : paginatedAlerts.map((alert) => {
+                const isJustTriggered = recentTriggerIds.has(alert.id);
+                return (
+                <tr
+                  key={alert.id}
+                  className={`transition-all duration-300 ${
+                    isJustTriggered
+                      ? 'bg-rose-500/15 border-l-4 border-l-rose-500 shadow-inner'
+                      : 'hover:bg-slate-800/40'
+                  }`}
+                >
+                  <td className="p-3.5 font-bold text-white whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span>#{alert.id}</span>
+                      {isJustTriggered && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-rose-500 to-amber-500 text-white animate-pulse shadow-md shadow-rose-500/50">
+                          ⚡ Just Triggered
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="p-3.5 text-slate-200 whitespace-nowrap">{alert.user?.username || alert.user?.email}</td>
                   <td className="p-3.5 font-mono text-xs text-slate-400 whitespace-nowrap">{alert.transaction?.transactionReference}</td>
                   <td className="p-3.5 font-extrabold text-white whitespace-nowrap">${alert.transaction?.amount?.toLocaleString()}</td>
@@ -237,7 +281,8 @@ export const AdminDashboard = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

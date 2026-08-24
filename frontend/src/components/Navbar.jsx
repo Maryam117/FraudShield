@@ -78,6 +78,9 @@ export const Navbar = () => {
         setNotifications((prev) => [newNotif, ...prev.slice(0, 14)]);
         setLiveAlertCount((prev) => prev + 1);
         addToast(`🚨 Real-Time Alert: ${data.alertLevel || 'CRITICAL'} severity fraud alert created!`, 'error');
+
+        // Broadcast to active pages (Triage workbench, Executive dashboard) for live grid auto-update
+        window.dispatchEvent(new CustomEvent('fraud-alert-received', { detail: data }));
       } catch (err) {
         console.error('Error parsing alert event', err);
       }
