@@ -13,6 +13,8 @@ import { RuleEngine } from './pages/RuleEngine';
 import { AnalyticsReport } from './pages/AnalyticsReport';
 import { AuditLogs } from './pages/AuditLogs';
 import { UserManagement } from './pages/UserManagement';
+import { ListManagement } from './pages/ListManagement';
+import { UserProfile } from './pages/UserProfile';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -70,6 +72,14 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <UserProfile />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Admin Routes */}
       <Route
@@ -117,6 +127,14 @@ export default function App() {
         element={
           <ProtectedRoute requireAdmin={true}>
             <UserManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/blacklist"
+        element={
+          <ProtectedRoute requireAdmin={true}>
+            <ListManagement />
           </ProtectedRoute>
         }
       />

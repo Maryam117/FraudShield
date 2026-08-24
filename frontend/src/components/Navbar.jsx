@@ -1,9 +1,33 @@
-import React from 'react';
-import { Shield, LogOut, User, Bell, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Shield, LogOut, User, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export const Navbar = () => {
   const { user, logout, isAdmin } = useAuth();
+  const { addToast } = useToast();
+  const [liveAlertCount, setLiveAlertCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    // Connect to SSE stream
+    const eventSource = new EventSource('/api/admin/alerts/stream');
+
+    eventSource.addEventListener('fraud-alert', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setLiveAlertCount((prev) => prev + 1);
+        addToast(`🚨 Real-Time Alert: ${data.alertLevel} severity fraud alert created!`, 'error');
+      } catch (err) {
+        console.error('Error parsing alert event', err);
+      }
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [isAdmin, addToast]);
 
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-md">
@@ -28,10 +52,19 @@ export const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors">
+          <button 
+            onClick={() => setLiveAlertCount(0)}
+            className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
+            title="Real-Time Alerts Stream"
+          >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500"></span>
+            {liveAlertCount > 0 && (
+              <>
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center animate-pulse">
+                  {liveAlertCount}
+                </span>
+              </>
+            )}
           </button>
 
           {user && (

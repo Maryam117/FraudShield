@@ -36,6 +36,14 @@ public class AdminController {
     @Autowired
     private com.fraudshield.service.UserService userService;
 
+    @Autowired
+    private com.fraudshield.service.NotificationService notificationService;
+
+    @GetMapping("/alerts/stream")
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamAlerts() {
+        return notificationService.subscribe();
+    }
+
     @GetMapping("/analytics")
     public ResponseEntity<?> getAnalytics() {
         AnalyticsSummaryDto analytics = analyticsService.getExecutiveAnalytics();

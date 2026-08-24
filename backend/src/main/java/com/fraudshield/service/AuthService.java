@@ -39,15 +39,8 @@ public class AuthService {
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new RuntimeException("Error: User not found with username " + loginRequest.getUsername()));
 
-        // If raw password matches encoded, or raw matches stored text
-        if (!encoder.matches(loginRequest.getPassword(), user.getPassword()) && !loginRequest.getPassword().equals(user.getPassword())) {
+        if (!encoder.matches(loginRequest.getPassword(), user.getPassword())) {
             throw new RuntimeException("Error: Invalid credentials");
-        }
-
-        // Fix password hash in DB if plain text
-        if (loginRequest.getPassword().equals(user.getPassword())) {
-            user.setPassword(encoder.encode(loginRequest.getPassword()));
-            userRepository.save(user);
         }
 
         Authentication authentication = authenticationManager.authenticate(

@@ -63,6 +63,26 @@ public class TransactionController {
                 .build());
     }
 
+    @PostMapping("/{id}/dispute")
+    public ResponseEntity<?> disputeTransaction(
+            @PathVariable Long id,
+            @Valid @RequestBody com.fraudshield.dto.DisputeRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            TransactionResponse response = transactionService.disputeTransaction(id, request.getReason(), userDetails.getUsername());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Dispute submitted successfully")
+                    .data(response)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getTransactionById(@PathVariable Long id) {
         try {

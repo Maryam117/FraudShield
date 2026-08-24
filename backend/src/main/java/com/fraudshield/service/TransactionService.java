@@ -83,6 +83,33 @@ public class TransactionService {
                 .collect(Collectors.toList());
     }
 
+    @Autowired
+    private com.fraudshield.repository.FraudAlertRepository alertRepository;
+
+    public TransactionResponse disputeTransaction(Long id, String reason, String username) {
+        Transaction txn = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));
+
+        // Find linked alert if any
+        java.util.Optional<com.fraudshield.entity.FraudAlert> alertOpt = alertRepository.findByTransactionId(id);
+        if (alertOpt.isPresent()) {
+            com.fraudshield.entity.FraudAlert alert = alertOpt.get();
+            String existingNotes = alert.getInvestigationNotes() != null ? alert.getInvestigationNotes() : "";
+            alert.setInvestigationNotes(existingNotes + " | CUSTOMER VERIFIED DISPUTE: " + reason);
+            alertRepository.save(alert);
+        }
+
+        auditService.logAction(
+                "TRANSACTION_DISPUTE",
+                username,
+                "Txn:" + txn.getTransactionReference(),
+                "Customer submitted dispute verification: " + reason,
+                "127.0.0.1"
+        );
+
+        return mapToResponse(txn);
+    }
+
     public TransactionResponse getTransactionById(Long id) {
         Transaction txn = transactionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + id));

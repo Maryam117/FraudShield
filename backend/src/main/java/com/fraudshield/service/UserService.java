@@ -111,6 +111,37 @@ public class UserService {
     }
 
     @Transactional
+    public User updateUserProfile(Long userId, com.fraudshield.dto.ProfileUpdateRequest request) {
+        User user = getUserById(userId);
+
+        if (!user.getEmail().equals(request.getEmail()) && userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Error: Email is already in use!");
+        }
+
+        user.setFullName(request.getFullName());
+        user.setEmail(request.getEmail());
+
+        if (request.getNewPassword() != null && !request.getNewPassword().trim().isEmpty()) {
+            if (request.getCurrentPassword() == null || !encoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new RuntimeException("Error: Incorrect current password");
+            }
+            user.setPassword(encoder.encode(request.getNewPassword()));
+        }
+
+        User updated = userRepository.save(user);
+
+        auditService.logAction(
+                "PROFILE_UPDATE",
+                user.getUsername(),
+                "User:" + user.getUsername(),
+                "User updated profile details / password",
+                "127.0.0.1"
+        );
+
+        return updated;
+    }
+
+    @Transactional
     public void deleteUser(Long id, String performedBy) {
         User user = getUserById(id);
 

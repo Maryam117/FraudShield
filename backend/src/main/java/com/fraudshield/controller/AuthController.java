@@ -55,6 +55,34 @@ public class AuthController {
         }
     }
 
+    @Autowired
+    private com.fraudshield.service.UserService userService;
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(
+            @Valid @RequestBody com.fraudshield.dto.ProfileUpdateRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).body(ApiResponse.builder()
+                    .success(false)
+                    .message("Unauthorized")
+                    .build());
+        }
+        try {
+            User updated = userService.updateUserProfile(userDetails.getId(), request);
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Profile updated successfully")
+                    .data(updated)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         if (userDetails == null) {

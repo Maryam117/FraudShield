@@ -1,9 +1,9 @@
 package com.fraudshield.controller;
 
 import com.fraudshield.dto.ApiResponse;
-import com.fraudshield.dto.RuleDto;
+import com.fraudshield.entity.BlacklistEntry;
 import com.fraudshield.security.UserDetailsImpl;
-import com.fraudshield.service.RuleService;
+import com.fraudshield.service.BlacklistService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,33 +14,52 @@ import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/rules")
-public class RuleController {
+@RequestMapping("/api/blacklist")
+@PreAuthorize("hasRole('ADMIN')")
+public class BlacklistController {
 
     @Autowired
-    private RuleService ruleService;
+    private BlacklistService blacklistService;
 
     @GetMapping
-    public ResponseEntity<?> getAllRules() {
-        List<RuleDto> rules = ruleService.getAllRules();
+    public ResponseEntity<?> getAllEntries() {
+        List<BlacklistEntry> list = blacklistService.getAllEntries();
         return ResponseEntity.ok(ApiResponse.builder()
                 .success(true)
-                .message("Fraud rules fetched")
-                .data(rules)
+                .message("List entries fetched successfully")
+                .data(list)
                 .build());
     }
 
+    @PostMapping
+    public ResponseEntity<?> addEntry(
+            @RequestBody BlacklistEntry entry,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            BlacklistEntry saved = blacklistService.addEntry(entry, userDetails.getUsername());
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .success(true)
+                    .message("Entry added to " + entry.getListType())
+                    .data(saved)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
+
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> updateRule(
+    public ResponseEntity<?> updateEntry(
             @PathVariable Long id,
-            @RequestBody RuleDto dto,
+            @RequestBody BlacklistEntry entry,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            RuleDto updated = ruleService.updateRule(id, dto, userDetails.getUsername());
+            BlacklistEntry updated = blacklistService.updateEntry(id, entry, userDetails.getUsername());
             return ResponseEntity.ok(ApiResponse.builder()
                     .success(true)
-                    .message("Fraud rule updated successfully")
+                    .message("Entry updated successfully")
                     .data(updated)
                     .build());
         } catch (Exception e) {
@@ -51,35 +70,15 @@ public class RuleController {
         }
     }
 
-    @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> toggleRuleStatus(
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> removeEntry(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            RuleDto updated = ruleService.toggleRuleStatus(id, userDetails.getUsername());
+            blacklistService.removeEntry(id, userDetails.getUsername());
             return ResponseEntity.ok(ApiResponse.builder()
                     .success(true)
-                    .message("Rule status toggled to " + updated.getIsActive())
-                    .data(updated)
-                    .build());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.builder()
-                    .success(false)
-                    .message(e.getMessage())
-                    .build());
-        }
-    }
-
-    @PostMapping("/simulate")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> simulateRule(@RequestBody com.fraudshield.dto.SimulationRequest request) {
-        try {
-            com.fraudshield.dto.SimulationResultDto result = ruleService.simulateRule(request);
-            return ResponseEntity.ok(ApiResponse.builder()
-                    .success(true)
-                    .message("Rule simulation completed")
-                    .data(result)
+                    .message("Entry removed successfully")
                     .build());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.builder()

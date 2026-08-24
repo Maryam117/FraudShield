@@ -57,6 +57,29 @@ export const RuleEngine = () => {
     }
   };
 
+  const [simResult, setSimResult] = useState(null);
+  const [simulating, setSimulating] = useState(false);
+
+  const handleSimulate = async () => {
+    if (!editingRule) return;
+    try {
+      setSimulating(true);
+      const res = await adminService.simulateRule({
+        ruleCode: editingRule.ruleCode,
+        thresholdValue: parseFloat(threshold),
+        riskPoints: parseInt(riskPoints)
+      });
+      if (res.success && res.data) {
+        setSimResult(res.data);
+        addToast('Backtest simulation completed!', 'info');
+      }
+    } catch (err) {
+      addToast('Failed to run simulation', 'error');
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -90,10 +113,11 @@ export const RuleEngine = () => {
                     setEditingRule(rule);
                     setThreshold(rule.thresholdValue);
                     setRiskPoints(rule.riskPoints);
+                    setSimResult(null);
                   }}
                   className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
                 >
-                  <Edit3 className="w-3.5 h-3.5" /> Edit Threshold
+                  <Edit3 className="w-3.5 h-3.5" /> Edit &amp; Backtest
                 </button>
 
                 <button
@@ -138,6 +162,28 @@ export const RuleEngine = () => {
                 onChange={(e) => setRiskPoints(e.target.value)}
                 className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-white font-bold focus:outline-none focus:border-emerald-500"
               />
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-300">Historical Backtest Impact</span>
+                <button
+                  type="button"
+                  onClick={handleSimulate}
+                  disabled={simulating}
+                  className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-bold transition-all"
+                >
+                  {simulating ? 'Simulating...' : 'Run Simulation'}
+                </button>
+              </div>
+
+              {simResult && (
+                <div className="text-xs space-y-1 text-slate-300 pt-2 border-t border-slate-800">
+                  <div>Evaluated Ledger: <strong className="text-white">{simResult.totalEvaluated} txns</strong></div>
+                  <div>Would Flag: <strong className="text-rose-400">{simResult.flaggedCount} txns</strong></div>
+                  <div>Simulated Intercepted Volume: <strong className="text-emerald-400">${simResult.simulatedRiskVolume?.toLocaleString()}</strong></div>
+                </div>
+              )}
             </div>
 
             <div className="pt-2">

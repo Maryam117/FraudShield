@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, History, ShieldCheck, AlertTriangle, ArrowUpRight, Eye } from 'lucide-react';
+import { Send, History, ShieldCheck, AlertTriangle, Eye, PieChart, CheckCircle } from 'lucide-react';
 import { transactionService } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { RiskBadge } from '../components/RiskBadge';
 import { Modal } from '../components/Modal';
+import { useToast } from '../context/ToastContext';
 
 export const UserDashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [selectedTxn, setSelectedTxn] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputing, setDisputing] = useState(false);
+  const { addToast } = useToast();
 
   useEffect(() => {
     fetchMyTxns();
@@ -26,12 +30,40 @@ export const UserDashboard = () => {
     }
   };
 
+  const handleDispute = async (e) => {
+    e.preventDefault();
+    if (!selectedTxn || !disputeReason) return;
+    try {
+      setDisputing(true);
+      const res = await transactionService.dispute(selectedTxn.id, { reason: disputeReason });
+      if (res.success) {
+        addToast('Dispute verification submitted to Risk Officers!', 'success');
+        setDisputeReason('');
+        setSelectedTxn(null);
+        fetchMyTxns();
+      }
+    } catch (err) {
+      addToast(err || 'Failed to submit dispute', 'error');
+    } finally {
+      setDisputing(false);
+    }
+  };
+
   const totalAmount = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
   const approvedCount = transactions.filter((t) => t.status === 'APPROVED').length;
   const flaggedCount = transactions.filter((t) => t.status === 'SUSPICIOUS' || t.status === 'REJECTED').length;
 
+  // Category breakdown calculation
+  const categoryTotals = transactions.reduce((acc, t) => {
+    const cat = t.merchantCategory || 'Other';
+    acc[cat] = (acc[cat] || 0) + (t.amount || 0);
+    return acc;
+  }, {});
+
+  const safetyScore = transactions.length === 0 ? 100 : Math.max(0, 100 - Math.round((flaggedCount / transactions.length) * 100));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl glass-panel border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40">
         <div>
@@ -47,11 +79,11 @@ export const UserDashboard = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl glass-panel border border-slate-800">
-          <span className="text-xs font-semibold uppercase text-slate-400">Total Spent</span>
+          <span className="text-xs font-semibold uppercase text-slate-400">Total Volume</span>
           <h3 className="text-2xl font-extrabold text-white mt-2">${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
-          <span className="text-xs text-slate-400 mt-1 block">Across {transactions.length} transactions</span>
+          <span className="text-xs text-slate-400 mt-1 block">{transactions.length} transfers initiated</span>
         </div>
 
         <div className="p-5 rounded-2xl glass-panel border border-slate-800">
@@ -63,11 +95,34 @@ export const UserDashboard = () => {
         </div>
 
         <div className="p-5 rounded-2xl glass-panel border border-slate-800">
-          <span className="text-xs font-semibold uppercase text-slate-400">Flagged / Stopped</span>
+          <span className="text-xs font-semibold uppercase text-slate-400">Flagged / Intercepted</span>
           <h3 className="text-2xl font-extrabold text-rose-400 mt-2">{flaggedCount} Txns</h3>
           <span className="text-xs text-rose-400/80 mt-1 flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5" /> Intercepted by Fraud Engine
+            <AlertTriangle className="w-3.5 h-3.5" /> Checked by Risk Engine
           </span>
+        </div>
+
+        <div className="p-5 rounded-2xl glass-panel border border-slate-800">
+          <span className="text-xs font-semibold uppercase text-slate-400">Account Safety Rating</span>
+          <h3 className="text-2xl font-extrabold text-indigo-400 mt-2">{safetyScore} / 100</h3>
+          <span className="text-xs text-indigo-400/80 mt-1 flex items-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5" /> Trust Index Rating
+          </span>
+        </div>
+      </div>
+
+      {/* Spending Insights Category Breakdown (Feature 4) */}
+      <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-3">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <PieChart className="w-4 h-4 text-emerald-400" /> Category Spending &amp; Risk Insights
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+          {Object.entries(categoryTotals).map(([category, amount]) => (
+            <div key={category} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase truncate block">{category}</span>
+              <p className="text-lg font-bold text-white mt-0.5">${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -111,7 +166,7 @@ export const UserDashboard = () => {
                       <button
                         onClick={() => setSelectedTxn(txn)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors"
-                        title="View Metadata"
+                        title="View Receipt & Dispute"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -124,8 +179,8 @@ export const UserDashboard = () => {
         )}
       </div>
 
-      {/* Transaction Details Modal */}
-      <Modal isOpen={!!selectedTxn} onClose={() => setSelectedTxn(null)} title="Transaction Fraud Assessment Metadata">
+      {/* Transaction Details & Dispute Modal (Feature 1) */}
+      <Modal isOpen={!!selectedTxn} onClose={() => setSelectedTxn(null)} title="Transaction Receipt & Fraud Details">
         {selectedTxn && (
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
@@ -159,7 +214,7 @@ export const UserDashboard = () => {
               <span className="text-xs text-slate-400 uppercase font-semibold">Risk Engine Score</span>
               <div className="flex items-center gap-3">
                 <RiskBadge score={selectedTxn.riskScore} />
-                <span className="text-xs text-slate-400">Synchronous rule check output</span>
+                <span className="text-xs text-slate-400">Synchronous rule evaluation output</span>
               </div>
             </div>
 
@@ -169,6 +224,35 @@ export const UserDashboard = () => {
                 {selectedTxn.triggeredRules || 'None (Clean Transaction)'}
               </p>
             </div>
+
+            {/* Dispute Form for Flagged / Rejected Transactions */}
+            {(selectedTxn.status === 'SUSPICIOUS' || selectedTxn.status === 'REJECTED') && (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-3">
+                <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase">
+                  <AlertTriangle className="w-4 h-4" /> Customer Dispute &amp; Identity Verification
+                </div>
+                <p className="text-xs text-slate-300">
+                  Was this payment authorized by you? Submit a verification note so Risk Officers can review your case.
+                </p>
+                <form onSubmit={handleDispute} className="space-y-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. I authorized this transfer to my vendor from home IP"
+                    value={disputeReason}
+                    onChange={(e) => setDisputeReason(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={disputing}
+                    className="w-full py-2 px-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-lg shadow-rose-500/20"
+                  >
+                    {disputing ? 'Submitting Dispute...' : 'Verify & Dispute Decision'}
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
         )}
       </Modal>

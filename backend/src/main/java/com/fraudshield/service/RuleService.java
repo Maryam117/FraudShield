@@ -16,7 +16,48 @@ public class RuleService {
     private FraudRuleRepository ruleRepository;
 
     @Autowired
+    private com.fraudshield.repository.TransactionRepository transactionRepository;
+
+    @Autowired
     private AuditService auditService;
+
+    public com.fraudshield.dto.SimulationResultDto simulateRule(com.fraudshield.dto.SimulationRequest request) {
+        List<com.fraudshield.entity.Transaction> txns = transactionRepository.findAll();
+        long totalEvaluated = txns.size();
+        long flaggedCount = 0;
+        java.math.BigDecimal totalVolume = java.math.BigDecimal.ZERO;
+        List<String> affectedRefs = new java.util.ArrayList<>();
+
+        for (com.fraudshield.entity.Transaction t : txns) {
+            boolean matches = false;
+            if ("HIGH_AMOUNT".equalsIgnoreCase(request.getRuleCode())) {
+                if (request.getThresholdValue() != null && t.getAmount().compareTo(request.getThresholdValue()) >= 0) {
+                    matches = true;
+                }
+            } else if ("HIGH_RISK_MERCHANT".equalsIgnoreCase(request.getRuleCode())) {
+                if (t.getMerchantCategory() != null && (t.getMerchantCategory().toLowerCase().contains("crypto") || t.getMerchantCategory().toLowerCase().contains("gambling"))) {
+                    matches = true;
+                }
+            } else if ("GEO_ANOMALY".equalsIgnoreCase(request.getRuleCode())) {
+                if (t.getLocation() != null && (t.getLocation().toLowerCase().contains("panama") || t.getLocation().toLowerCase().contains("unknown"))) {
+                    matches = true;
+                }
+            }
+
+            if (matches) {
+                flaggedCount++;
+                totalVolume = totalVolume.add(t.getAmount());
+                affectedRefs.add(t.getTransactionReference());
+            }
+        }
+
+        return com.fraudshield.dto.SimulationResultDto.builder()
+                .totalEvaluated(totalEvaluated)
+                .flaggedCount(flaggedCount)
+                .simulatedRiskVolume(totalVolume)
+                .affectedTransactionRefs(affectedRefs)
+                .build();
+    }
 
     public List<RuleDto> getAllRules() {
         return ruleRepository.findAll().stream()

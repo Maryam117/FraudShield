@@ -26,6 +26,12 @@ public class FraudEngineService {
     private FraudAlertRepository alertRepository;
 
     @Autowired
+    private com.fraudshield.repository.BlacklistRepository blacklistRepository;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
     private AuditService auditService;
 
     public static class EvaluationResult {
@@ -35,6 +41,26 @@ public class FraudEngineService {
     }
 
     public EvaluationResult evaluateTransaction(User user, BigDecimal amount, String merchantCategory, String location, String ipAddress) {
+        // Pre-check 1: Whitelist check
+        if ((ipAddress != null && blacklistRepository.existsByValueAndListType(ipAddress, "WHITELIST")) ||
+            (user.getEmail() != null && blacklistRepository.existsByValueAndListType(user.getEmail(), "WHITELIST"))) {
+            EvaluationResult res = new EvaluationResult();
+            res.riskScore = 0;
+            res.status = TransactionStatus.APPROVED;
+            res.triggeredRules = List.of("WHITELISTED_ENTITY (Bypassed rule engine)");
+            return res;
+        }
+
+        // Pre-check 2: Blacklist check
+        if ((ipAddress != null && blacklistRepository.existsByValueAndListType(ipAddress, "BLACKLIST")) ||
+            (user.getEmail() != null && blacklistRepository.existsByValueAndListType(user.getEmail(), "BLACKLIST"))) {
+            EvaluationResult res = new EvaluationResult();
+            res.riskScore = 100;
+            res.status = TransactionStatus.REJECTED;
+            res.triggeredRules = List.of("BLACKLISTED_ENTITY (Instant rejection policy)");
+            return res;
+        }
+
         List<FraudRule> activeRules = ruleRepository.findByIsActiveTrue();
         int totalRiskScore = 0;
         List<String> triggeredRulesList = new ArrayList<>();
@@ -122,7 +148,8 @@ public class FraudEngineService {
                     .investigationNotes("Automated Fraud Engine Alert. Triggered: " + String.join(", ", result.triggeredRules))
                     .build();
 
-            alertRepository.save(alert);
+            FraudAlert savedAlert = alertRepository.save(alert);
+            notificationService.broadcastAlert(savedAlert);
 
             auditService.logAction("FRAUD_ALERT_CREATED", "SYSTEM", "Txn:" + transaction.getTransactionReference(),
                     "Alert generated level=" + level + ", RiskScore=" + result.riskScore, transaction.getIpAddress());

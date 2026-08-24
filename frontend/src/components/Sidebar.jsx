@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Activity,
   Users,
+  User,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,11 +20,13 @@ export const Sidebar = () => {
   const userLinks = [
     { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { to: '/new-transaction', label: 'Submit Payment', icon: Send },
+    { to: '/profile', label: 'Profile & Security', icon: User },
   ];
 
   const adminLinks = [
     { to: '/admin', label: 'Executive Dashboard', icon: LayoutDashboard },
     { to: '/users', label: 'User Management', icon: Users },
+    { to: '/blacklist', label: 'Lists & Blacklist', icon: ShieldCheck },
     { to: '/alerts', label: 'Fraud Alerts Triage', icon: AlertTriangle, badge: 'Live' },
     { to: '/rules', label: 'Rule Engine Config', icon: Sliders },
     { to: '/analytics', label: 'Analytics & Reports', icon: BarChart3 },
